@@ -167,7 +167,7 @@ try:
                         if row[col] is None:
                             value = "NULL"
                         elif float(row[col]) == float('inf'):
-                            value = "'0'"
+                            value = "'-1'"
                         else:
                             value = "'" + str(row[col]) + "'"
                         value_str += " " + str(value) + ","
