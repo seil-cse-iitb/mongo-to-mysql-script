@@ -149,7 +149,7 @@ try:
                 ts_fetch_till = fetch_till(ts_fetch_from)
                 if ts_fetch_till > ts_backup_till:
                     ts_fetch_till = ts_backup_till
-                mongo_query = {"$query": {"TS": {"$gt": ts_fetch_from, "$lt": ts_fetch_till}}, "$orderby": {"TS": 1}}
+                mongo_query = {"$query": {"TS": {"$gte": ts_fetch_from, "$lt": ts_fetch_till}}, "$orderby": {"TS": 1}}
                 print("------------------------------------------")
                 print("coping from: " + channel + "-" + table_name + " to " + mysql_tables[channel])
                 rows = mongo_con[table_name].find(mongo_query, select_cols)
