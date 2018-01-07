@@ -166,6 +166,8 @@ try:
                     for col in schema[channel]:
                         if row[col] is None:
                             value = "NULL"
+                        elif float(row[col]) == float('inf'):
+                            value = "'0'"
                         else:
                             value = "'" + str(row[col]) + "'"
                         value_str += " " + str(value) + ","
