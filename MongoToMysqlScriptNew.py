@@ -1,14 +1,14 @@
 import datetime
-import pymongo as pm
-import os.path
-import os
 import json
-import time
-import sys
-from mysql.connector import (connection)
+import os
+import os.path
+import pymongo as pm
 import smtplib
+import sys
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from mysql.connector import (connection)
 
 
 # "power_k_lh_a",
@@ -54,6 +54,12 @@ def report_error(toemail, errorsubject, errormsg):
     server.quit()
 
 
+def save_log(string):
+    log = open('log', 'a')
+    log.write(str(string))
+    log.close()
+
+
 def str_from_timestamp(timestamp):
     return datetime.datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -85,10 +91,8 @@ def update_transfered_records_log(table_name, str_backuped_till, records_copied,
     file.close()
     print("Records till: (" + table_name + ")=>" + str_backuped_till + " inserted, no. of records: " + str(
         records_copied) + " to mysql table: " + mysql_table_name)
-    log = open('log', 'a')
-    log.write("Records till: (" + table_name + ")=>" + str_backuped_till + " inserted, no. of records: " + str(
+    save_log("Records till: (" + table_name + ")=>" + str_backuped_till + " inserted, no. of records: " + str(
         records_copied) + " to mysql table: " + mysql_table_name + "\n")
-    log.close()
 
 
 def fetch_from(table_name):
@@ -102,7 +106,6 @@ def fetch_from(table_name):
 
 def fetch_till(ts_fetch_from):
     return ts_fetch_from + records_batch_size
-
 
 # -----------------------------------------------------------
 config_fp = open("config.json", 'r')
@@ -124,7 +127,8 @@ channelwise_tables = config['channelwise_tables']
 # channelwise_tables = {"1": ['aravali_236']}
 # -----------------------------------------------------------
 
-
+save_log("-------------------------------------------------------")
+save_log("script started at "+str_from_timestamp(time.time())+"\n")
 try:
     mongo_db, mongo_con = connect_mongo()  # connection to mongo db
 except:
@@ -184,9 +188,7 @@ try:
                     except Exception as e:
                         records_to_be_copied = 0
                         print("exception during query execution: ", e)
-                        log = open('log', 'a')
-                        log.write("collection: "+table_name+" "+str(e) + "\n")
-                        log.close()
+                        save_log("collection: " + table_name + " " + str(e) + "\n")
                         mysql_con.rollback()
                         break
                     print("executed query!")
@@ -199,9 +201,9 @@ try:
 
 except Exception as e:
     print("outer exception: ", e)
-    log = open('log', 'a')
-    log.write(str(e) + "\n")
-    log.close()
+    save_log(str(e) + "\n")
     report_error("sapantanted99@gmail.com", "mongo to mysql script stopped", "outer exception: " + str(e) + "\n")
 finally:
     mysql_con.close()
+
+save_log("script ended at "+str_from_timestamp(time.time())+"\n")
