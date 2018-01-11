@@ -1,44 +1,72 @@
 import datetime
-
-import pymongo as pm
-import os.path
-import os
 import json
-
-import time
-
+import os
+import os.path
+import pymongo as pm
+import smtplib
 import sys
+import time
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from mysql.connector import (connection)
 
-#two files are created when this file run:- transfered_records_log.json and log
 
-#transfered_records_log.json saves how many records are saved till now into mysql; in case, script running fails it will start after the data that is already inserted (since data is around 10GB per table so it was needed to track no. of records inserted otherwise script would be inserting the whole data if it fails any time)
+# "power_k_lh_a",
+# "power_test"
+# "aravali_230",
+# "aravali_231",
+# "aravali_235",
+# "aravali_236",
+# "aravali_237",
+# "aravali_238",
+# "aravali_239",
+# "aravali_240",
+# "aravali_241",
+# "aravali_242",
+# "aravali_243",
+# "aravali_244",
+# "aravali_245",
+# "aravali_246",
+# "aravali_247",
+# "aravali_8",
+# "aravali_meter11",
+# "aravali_meter19",
+# "test_ee",
+# "test_seil_rish"
 
-#log file has some log data to track if any error has come
 
-db_name = "kresit"
-limit_records = 1000 #this are the no. of records which will be fetched from mongo at once and will be inserted into mysql, after all this records are inserted then only mysql commit will be called else rollback is called
-db_user = 'admin'#mysql
-db_pass = 'letmein'#mysql
-db_host = '10.129.23.41'#mysql
-start_time_stamp = time.mktime(datetime.datetime.strptime("08/09/2017 14:03:21", "%d/%m/%Y %H:%M:%S").timetuple()) #1504859601.0  # records are fetched from mongo db after this time stamp (8/9/2017, 14:03:21)
-end_time_stamp = time.mktime(datetime.datetime.strptime("08/09/2017 20:00:00", "%d/%m/%Y %H:%M:%S").timetuple()) #1504881000.0
-mongo_host = "10.129.23.41"
-schema = {
-    "temp_k_sr": ['humidity', 'battery_voltage', 'id', 'TS', 'TS_RECV', 'temperature'],
-    "power_k_sr_a": ['V12', 'V1', 'V3', 'PF1', 'VAR3', 'W2', 'VA1', 'TS_RECV', 'FwdVARhR', 'VLN', 'W1', 'PF2', 'A',
-                     'FwdVAh', 'V31', 'V23', 'VAR', 'VA2', 'PF3', 'FwdWh', 'VAR1', 'W3', 'F', 'A1', 'PF', 'FwdVARhC',
-                     'V2', 'VAR2', 'VA', 'VA3', 'W', 'A2', 'A3', 'TS', 'srl', 'VLL'],
-    "power_k_sr_p": ['V12', 'V1', 'V3', 'PF1', 'VAR3', 'W2', 'VA1', 'TS_RECV', 'FwdVARhR', 'VLN', 'W1', 'PF2', 'A',
-                     'FwdVAh', 'V31', 'V23', 'VAR', 'VA2', 'PF3', 'FwdWh', 'VAR1', 'W3', 'F', 'A1', 'PF', 'FwdVARhC',
-                     'V2', 'VAR2', 'VA', 'VA3', 'W', 'A2', 'A3', 'TS', 'srl', 'VLL'],
-    "power_k_yc_a": ['V12', 'V1', 'V3', 'PF1', 'VAR3', 'W2', 'VA1', 'TS_RECV', 'FwdVARhR', 'VLN', 'W1', 'PF2', 'A',
-                     'FwdVAh', 'V31', 'V23', 'VAR', 'VA2', 'PF3', 'FwdWh', 'VAR1', 'W3', 'F', 'A1', 'PF', 'FwdVARhC',
-                     'V2', 'VAR2', 'VA', 'VA3', 'W', 'A2', 'A3', 'TS', 'srl', 'VLL'],
-    "power_k_yc_p": ['V12', 'V1', 'V3', 'PF1', 'VAR3', 'W2', 'VA1', 'TS_RECV', 'FwdVARhR', 'VLN', 'W1', 'PF2', 'A',
-                     'FwdVAh', 'V31', 'V23', 'VAR', 'VA2', 'PF3', 'FwdWh', 'VAR1', 'W3', 'F', 'A1', 'PF', 'FwdVARhC',
-                     'V2', 'VAR2', 'VA', 'VA3', 'W', 'A2', 'A3', 'TS', 'srl', 'VLL'],
-}
+def report_error(toemail, errorsubject, errormsg):
+    fromaddr = "seil@cse.iitb.ac.in"
+    toaddr = toemail
+    msg = MIMEMultipart()
+    msg['From'] = fromaddr
+    msg['To'] = toaddr
+    msg['Subject'] = errorsubject
+
+    body = errormsg
+    msg.attach(MIMEText(body, 'plain'))
+
+    server = smtplib.SMTP('imap.cse.iitb.ac.in', 25)
+    server.starttls()
+    server.login(fromaddr, "seilers")
+    text = msg.as_string()
+    server.sendmail(fromaddr, toaddr, text)
+    server.quit()
+
+
+def save_log(string):
+    log = open('log', 'a')
+    log.write(str(string))
+    log.close()
+
+
+def str_from_timestamp(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M:%S")
+
+
+def timestamp_from_str(str):
+    return time.mktime(datetime.datetime.strptime(str,
+                                                  "%d/%m/%Y %H:%M:%S").timetuple())
 
 
 def connect_mongo():
@@ -46,122 +74,136 @@ def connect_mongo():
     con = db_mo['data']  # new database
     return db_mo, con
 
-def get_param_dict(params):
-    tempd = {}
-    for param in params:
-        tempd[param] = True
-    tempd['_id'] = False
-    return tempd
 
-def set_no_of_transfered_records(table_name, no_of_records):
-    file_name = "transfered_records_log.json"
-    dict = {table_name: no_of_records}
-    if (os.path.exists(file_name) == False):
-        file = open(file_name, 'w')
+def update_transfered_records_log(table_name, str_backuped_till, records_copied, mysql_table_name):
+    dict = {table_name: str_backuped_till}
+    if os.path.exists(transfered_records_log):
+        file = open(transfered_records_log, 'r')
+        dict = json.load(file)
+        file.close()
+        file = open(transfered_records_log, 'w')
+        dict[table_name] = str_backuped_till
         json.dump(dict, file)
     else:
-        file = open(file_name, 'r')
-        dict = json.load(file)
-        file = open(file_name, 'w')
-        dict[table_name] = no_of_records
+        file = open(transfered_records_log, 'w')
         json.dump(dict, file)
     file.flush()
-    print(str(no_of_records) + " Record inserted")
-    log = open('log', 'a')
-    log.write(table_name + ": " + str(no_of_records) + " Record inserted\n")
-    log.close()
+    file.close()
+    print("Records till: (" + table_name + ")=>" + str_backuped_till + " inserted, no. of records: " + str(
+        records_copied) + " to mysql table: " + mysql_table_name)
+    save_log("Records till: (" + table_name + ")=>" + str_backuped_till + " inserted, no. of records: " + str(
+        records_copied) + " to mysql table: " + mysql_table_name + "\n")
 
-def get_no_of_transfered_records(table_name):
-    file_name = "transfered_records_log.json"
-    dict = {table_name: 0}
-    if (os.path.exists(file_name) == False):
-        return dict[table_name]
-    else:
-        file = open(file_name, 'r')
-        dict = json.load(file)
-        if (table_name in dict.keys())==False:
-            dict[table_name]=0
-        return dict[table_name]
 
+def fetch_from(table_name):
+    if os.path.exists(transfered_records_log):
+        file = open(transfered_records_log, 'r')
+        dictionary = json.load(file)
+        if table_name in dictionary.keys():
+            return timestamp_from_str(dictionary[table_name])
+    return ts_backup_from
+
+
+def fetch_till(ts_fetch_from):
+    return ts_fetch_from + records_batch_size
+
+# -----------------------------------------------------------
+config_fp = open("config.json", 'r')
+config = json.load(config_fp)
+records_batch_size = config['records_batch_size']
+mongo_host = config['mongo_host']
+mysql_user = config['mysql_user']
+mysql_pass = config['mysql_pass']
+mysql_host = config['mysql_host']
+mysql_db_name = config['mysql_db_name']
+mysql_tables = config['mysql_tables']
+backup_from = config['backup_from']
+backup_till = config['backup_till']
+schema = config['schema']
+transfered_records_log = config["transfered_records_log"]
+ts_backup_from = timestamp_from_str(backup_from)
+ts_backup_till = timestamp_from_str(backup_till)
+channelwise_tables = config['channelwise_tables']
+# channelwise_tables = {"1": ['aravali_236']}
+# -----------------------------------------------------------
+
+save_log("-------------------------------------------------------")
+save_log("script started at "+str_from_timestamp(time.time())+"\n")
 try:
-    mo_db, mo_con = connect_mongo()  # connection to mongo db
+    mongo_db, mongo_con = connect_mongo()  # connection to mongo db
 except:
     print("Unexpected error In Mongo Connection:", sys.exc_info()[0])
     tFile = str(time.strftime("%d-%m-%Y"))
     tWrite = time.strftime("%H:%M:%S", time.localtime(time.time()))
-    with open(
-                    "/media/hail-drago/Work/Study/IITB Study/SEIL Lab/Mongo To MySQL Script/mongotomysqlscripterrror/error_" + tFile,
-                    "a+") as errF:
+    with open("./mongotomysqlscripterrror/error_" + tFile, "a+") as errF:
         errF.write(str(tWrite) + "\n" + str(sys.exc_info()[0]))
 
-# username:password
-# writer:datapool
-# admin:letmein
-
-mysqlcon = connection.MySQLConnection(user=db_user, password=db_pass,
-                                      host=db_host)
-cursor = mysqlcon.cursor()
-
+mysql_con = connection.MySQLConnection(user=mysql_user, password=mysql_pass, host=mysql_host, db=mysql_db_name)
+cursor = mysql_con.cursor()
 try:
-    cursor.execute("use " + db_name) #if database is not found then it will create it self (*see in except)
-except:
-    # reset no. of records transferred to 0
-    for table_name in schema.keys():
-        set_no_of_transfered_records(table_name, 0)
-    cursor.execute("create database if not exists " + db_name)
-    cursor.execute("use " + db_name)
-
-for table_name in schema.keys(): #creates table if not exists
-    cols = schema[table_name]
-    query = "Create table if not exists `" + table_name + "` ("
-    for col_name in cols:
-        query += " `" + col_name + "` double NULL,"
-    query = query[:-1]
-    query += ")"
-    cursor.execute(query)
-
-try:
-    for table_name in schema.keys():
-        count = 1
-        mysqlcon.rollback()
-        while count != 0:
-            select_cols = get_param_dict(schema[table_name])
-            query = {"$query": {"TS": {"$gt": start_time_stamp,"$lt": end_time_stamp }}, "$orderby": {"TS": 1}}
-            print(table_name)
-            offset = get_no_of_transfered_records(table_name)
-            print("offset: " + str(offset))
-            rows = mo_con[table_name].find(query, select_cols).skip(offset).limit(limit_records)
-            count = 0
-            for row in rows:
-                query = "insert into `" + table_name + "` "
+    for channel in channelwise_tables:
+        tables = channelwise_tables[channel]
+        for table_name in tables:
+            ts_fetch_from = ts_backup_from
+            ts_fetch_till = ts_backup_from
+            mysql_con.rollback()
+            while ts_fetch_till < ts_backup_till:
+                select_cols = schema[channel]
+                ts_fetch_from = fetch_from(table_name)
+                ts_fetch_till = fetch_till(ts_fetch_from)
+                if ts_fetch_till > ts_backup_till:
+                    ts_fetch_till = ts_backup_till
+                mongo_query = {"$query": {"TS": {"$gte": ts_fetch_from, "$lt": ts_fetch_till}}, "$orderby": {"TS": 1}}
+                print("------------------------------------------")
+                print("coping from: " + channel + "-" + table_name + " to " + mysql_tables[channel])
+                rows = mongo_con[table_name].find(mongo_query, select_cols)
+                records_to_be_copied = 0
                 col_str = ""
-                value_str = ""
-                for col in schema[table_name]:
-                    if row[col] == None:
-                        value = "NULL"
-                    else:
-                        value = "'" + str(row[col]) + "'"
+                for col in schema[channel]:
                     col_str += "`" + col + "`,"
-                    value_str += " " + str(value) + ","
-                value_str = value_str[:-1]
-                col_str = col_str[:-1]
-                query += "(" + col_str + ") values(" + value_str + ")"
-                try:
-                    cursor.execute(query)
-                    count += 1
-                except Exception as e:
-                    print(e)
-                    log = open('log', 'a')
-                    log.write(str(e) + "\n")
-                    log.close()
-                    mysqlcon.rollback()
-                    break
-            mysqlcon.commit()
-            set_no_of_transfered_records(table_name, offset + count)
+                col_str += "`sensor_id`"
+                blank_mysql_query = "insert into `" + str(mysql_tables[channel]) + "` (" + col_str + ") values "
+                filled_mysql_query = blank_mysql_query
+                print("started building query!")
+                for row in rows:
+                    value_str = ""
+                    for col in schema[channel]:
+                        if row[col] is None:
+                            value = "NULL"
+                        elif float(row[col]) == float('inf'):
+                            value = "'-1'"
+                        else:
+                            value = "'" + str(row[col]) + "'"
+                        value_str += " " + str(value) + ","
+                    value_str += "'" + table_name + "'"
+                    filled_mysql_query += " (" + value_str + "),"
+                    records_to_be_copied += 1
+                print("ended building query! no. of records: " + str(records_to_be_copied))
+                filled_mysql_query = filled_mysql_query[:-1]
+                print("removed comma from last!")
+                if records_to_be_copied > 0:
+                    try:
+                        cursor.execute(filled_mysql_query)
+                        # print(filled_mysql_query)
+                    except Exception as e:
+                        records_to_be_copied = 0
+                        print("exception during query execution: ", e)
+                        save_log("collection: " + table_name + " " + str(e) + "\n")
+                        mysql_con.rollback()
+                        break
+                    print("executed query!")
+                    mysql_con.commit()
+                    print("commited query!")
+                update_transfered_records_log(table_name, str_from_timestamp(ts_fetch_till), records_to_be_copied,
+                                              mysql_tables[channel])
+                print("no. of records copied: " + str(records_to_be_copied) + " into mysql table: " + str(
+                    mysql_tables[channel]))
+
 except Exception as e:
-    print(e)
-    log = open('log', 'a')
-    log.write(str(e) + "\n")
-    log.close()
+    print("outer exception: ", e)
+    save_log(str(e) + "\n")
+    report_error("sapantanted99@gmail.com", "mongo to mysql script stopped", "outer exception: " + str(e) + "\n")
 finally:
-    mysqlcon.close()
+    mysql_con.close()
+
+save_log("script ended at "+str_from_timestamp(time.time())+"\n")
