@@ -162,7 +162,7 @@ try:
                 for col in schema[channel]:
                     col_str += "`" + col + "`,"
                 col_str += "`sensor_id`"
-                blank_mysql_query = "insert into `" + str(mysql_tables[channel]) + "` (" + col_str + ") values "
+                blank_mysql_query = "insert ignore into `" + str(mysql_tables[channel]) + "` (" + col_str + ") values "
                 filled_mysql_query = blank_mysql_query
                 print("started building query!")
                 for row in rows:
