@@ -188,7 +188,7 @@ try:
                     except Exception as e:
                         records_to_be_copied = 0
                         print("exception during query execution: ", e)
-                        save_log("collection: " + table_name + " " + str(e) + "\n")
+                        save_log("Exception: collection: " + table_name + " " + str(e) + "\n")
                         mysql_con.rollback()
                         break
                     print("executed query!")
@@ -201,7 +201,7 @@ try:
 
 except Exception as e:
     print("outer exception: ", e)
-    save_log(str(e) + "\n")
+    save_log("Exception: "+str(e) + "\n")
     report_error("sapantanted99@gmail.com", "mongo to mysql script stopped", "outer exception: " + str(e) + "\n")
 finally:
     mysql_con.close()
